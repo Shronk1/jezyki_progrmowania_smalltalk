@@ -1,8 +1,7 @@
-"=== MODUŁ 2: Klasa Trasa (zdefiniowana jako pierwsza, aby OdcinekPodrozy mógł jej używać) ==="
+"=== MODUŁ 2 i 3: Klasa Trasa (łączenie + agregacja i drukowanie) ==="
 Object subclass: Trasa [
     | odcinki |
 
-    "Konstruktor inicjalizujący pustą OrderedCollection (str. 2 i 3 samouczka)"
     Trasa class >> new [
         | t |
         t := super new.
@@ -10,17 +9,15 @@ Object subclass: Trasa [
         ^t
     ]
 
-    "Pomocniczy setter do nadania nowej kolekcji etapów"
     ustawOdcinki: kolekcja [
         odcinki := kolekcja
     ]
 
-    "Getter wymagany przez mini-testy ze str. 5 samouczka"
     odcinki [
         ^odcinki
     ]
 
-    "2, 3, 4, 5, 6. Operator + obsługujący: Trasa + OdcinekPodrozy oraz Trasa + Trasa"
+    "Moduł 2: Polimorficzny operator +"
     + drugi [
         | wynik nowaTrasa |
         wynik := OrderedCollection new.
@@ -44,6 +41,39 @@ Object subclass: Trasa [
 
         self error: 'Oczekiwano odcinka lub trasy'
     ]
+
+    "Moduł 3: Agregacja wartości przez polimorficzne wysyłanie komunikatów do odcinków"
+    dystans [
+        ^odcinki inject: 0 into: [ :suma :etap | suma + etap dystans ]
+    ]
+
+    czas [
+        ^odcinki inject: 0 into: [ :suma :etap | suma + etap czas ]
+    ]
+
+    koszt [
+        ^odcinki inject: 0 into: [ :suma :etap | suma + etap koszt ]
+    ]
+
+    "Moduł 3: Drukowanie trasy w formacie z przykładowego wyniku"
+    drukuj [
+        | nr |
+        Transcript show: '--------- TRASA ---------'; cr.
+        nr := 1.
+        odcinki do: [ :etap |
+            Transcript show: nr printString , '. ' , etap nazwaTransportu; cr.
+            Transcript show: '   ' , etap poczatek , ' -> ' , etap koniec; cr.
+            Transcript show: '   ' , etap dystans printString , ' km | ' ,
+                etap czas printString , ' min | ' ,
+                etap koszt printString , ' zl'; cr.
+            nr := nr + 1
+        ].
+        Transcript show: '-------------------------'; cr.
+        Transcript show: 'Dystans: ' , self dystans printString , ' km'; cr.
+        Transcript show: 'Czas:    ' , self czas printString , ' min'; cr.
+        Transcript show: 'Koszt:   ' , self koszt printString , ' zl'; cr.
+        Transcript show: '-------------------------'; cr
+    ]
 ]
 
 "=== MODUŁ 1: Klasa OdcinekPodrozy i podklasy ==="
@@ -63,6 +93,8 @@ Object subclass: OdcinekPodrozy [
         dystans := d
     ]
 
+    poczatek [ ^poczatek ]
+    koniec [ ^koniec ]
     dystans [ ^dystans ]
     czas [ ^0 ]
     koszt [ ^0 ]
@@ -74,7 +106,6 @@ Object subclass: OdcinekPodrozy [
          self czas printString , ' min, koszt: ' , self koszt printString , ' zl)'
     ]
 
-    "2, 3, 4, 5, 6. Operator + obsługujący: OdcinekPodrozy + OdcinekPodrozy (oraz opcjonalnie Odcinek + Trasa)"
     + drugi [
         | wynik nowaTrasa |
         (drugi isKindOf: OdcinekPodrozy)
@@ -117,19 +148,7 @@ OdcinekPodrozy subclass: Autobus [
     koszt [ ^4 ]
 ]
 
-"=== TESTY MODUŁU 1 (z Twoimi etapami) ==="
-| etapy |
-etapy := OrderedCollection new.
-etapy add: (Pieszo new od: 'Armata' do: 'Przystanek' dystans: 1).
-etapy add: (Autobus new od: 'Przystanek' do: 'Centrum' dystans: 5).
-etapy add: (Rower new od: 'Centrum' do: 'Dom' dystans: 3).
-
-Transcript show: '--- Test Modulu 1 ---'; cr.
-etapy do: [ :etap |
-    Transcript show: etap opis; cr
-].
-
-"=== MINI TESTY PLANERA ZE STR. 5 SAMOUCZKA (weryfikacja Modułu 2) ==="
+"=== TESTY MODUŁÓW 1, 2 i 3 ==="
 | a b c d lewa prawa dluzsza calosc sprawdz blad |
 sprawdz := [ :warunek :opis |
     warunek ifFalse: [ Error signal: opis ] ].
@@ -144,6 +163,7 @@ prawa := c + d.
 dluzsza := lewa + c.
 calosc := lewa + prawa.
 
+"Weryfikacja Modułu 2"
 sprawdz value: (lewa isKindOf: Trasa) value: 'Typ wyniku'.
 sprawdz value: (dluzsza odcinki asArray = (Array with: a with: b with: c))
     value: 'Trasa + odcinek'.
@@ -157,5 +177,13 @@ sprawdz value: (prawa odcinki asArray = (Array with: c with: d))
 blad := false.
 [ lewa + 7 ] on: Error do: [ :e | blad := true ].
 sprawdz value: blad value: 'Brak bledu dla liczby'.
-
 Transcript show: 'Testy Modulu 2: OK'; cr.
+
+"Weryfikacja Modułu 3 (agregacja na Twojej trasie Armata -> Przystanek -> Centrum -> Dom)"
+sprawdz value: (dluzsza dystans = 9) value: 'Bledny laczny dystans'.
+sprawdz value: (dluzsza czas = 36) value: 'Bledny laczny czas'.
+sprawdz value: (dluzsza koszt = 4) value: 'Bledny laczny koszt'.
+Transcript show: 'Testy Modulu 3: OK'; cr; cr.
+
+"Wydruk całej trasy"
+dluzsza drukuj.

@@ -140,6 +140,7 @@ OdcinekPodrozy subclass: Pieszo [
 OdcinekPodrozy subclass: Rower [
     nazwaTransportu [ ^'Rower' ]
     czas [ ^self dystans * 4 ]
+    koszt [ ^2 ]
 ]
 
 OdcinekPodrozy subclass: Autobus [
@@ -153,37 +154,49 @@ OdcinekPodrozy subclass: Autobus [
 sprawdz := [ :warunek :opis |
     warunek ifFalse: [ Error signal: opis ] ].
 
-a := Pieszo new od: 'Armata' do: 'Przystanek' dystans: 1.
-b := Autobus new od: 'Przystanek' do: 'Centrum' dystans: 5.
-c := Rower new od: 'Centrum' do: 'Dom' dystans: 3.
-d := Pieszo new od: 'Dom' do: 'Sklep' dystans: 2.
+[
+    a := Pieszo new od: 'Armata' do: 'Przystanek' dystans: 1.
+    b := Autobus new od: 'Przystanek' do: 'Centrum' dystans: 5.
+    c := Rower new od: 'Centrum' do: 'Dom' dystans: 3.
+    d := Pieszo new od: 'Dom' do: 'Sklep' dystans: 2.
 
-lewa := a + b.
-prawa := c + d.
-dluzsza := lewa + c.
-calosc := lewa + prawa.
+    lewa := a + b.
+    prawa := c + d.
+    dluzsza := lewa + c.
+    calosc := lewa + prawa.
 
-"Weryfikacja Modułu 2"
-sprawdz value: (lewa isKindOf: Trasa) value: 'Typ wyniku'.
-sprawdz value: (dluzsza odcinki asArray = (Array with: a with: b with: c))
-    value: 'Trasa + odcinek'.
-sprawdz value: (calosc odcinki asArray = (Array with: a with: b with: c with: d))
-    value: 'Trasa + trasa'.
-sprawdz value: (lewa odcinki asArray = (Array with: a with: b))
-    value: 'Zmieniona lewa trasa'.
-sprawdz value: (prawa odcinki asArray = (Array with: c with: d))
-    value: 'Zmieniona prawa trasa'.
+    "Weryfikacja Modułu 2"
+    sprawdz value: (lewa isKindOf: Trasa) value: 'Typ wyniku'.
+    sprawdz value: (dluzsza odcinki asArray = (Array with: a with: b with: c))
+        value: 'Trasa + odcinek'.
+    sprawdz value: (calosc odcinki asArray = (Array with: a with: b with: c with: d))
+        value: 'Trasa + trasa'.
+    sprawdz value: (lewa odcinki asArray = (Array with: a with: b))
+        value: 'Zmieniona lewa trasa'.
+    sprawdz value: (prawa odcinki asArray = (Array with: c with: d))
+        value: 'Zmieniona prawa trasa'.
 
-blad := false.
-[ lewa + 7 ] on: Error do: [ :e | blad := true ].
-sprawdz value: blad value: 'Brak bledu dla liczby'.
-Transcript show: 'Testy Modulu 2: OK'; cr.
+    blad := false.
+    [ lewa + 7 ] on: Error do: [ :e | blad := true. e return: nil ].
+    sprawdz value: blad value: 'Brak bledu dla liczby'.
+    Transcript showCr: 'Testy Modulu 2: OK'.
 
-"Weryfikacja Modułu 3 (agregacja na Twojej trasie Armata -> Przystanek -> Centrum -> Dom)"
-sprawdz value: (dluzsza dystans = 9) value: 'Bledny laczny dystans'.
-sprawdz value: (dluzsza czas = 36) value: 'Bledny laczny czas'.
-sprawdz value: (dluzsza koszt = 4) value: 'Bledny laczny koszt'.
-Transcript show: 'Testy Modulu 3: OK'; cr; cr.
+    "Weryfikacja Modułu 3 (trasa Armata -> Przystanek -> Centrum -> Dom)"
+    sprawdz value: (c koszt = 2) value: 'Bledny koszt roweru'.
+    sprawdz value: (dluzsza dystans = 9) value: 'Bledny laczny dystans'.
+    sprawdz value: (dluzsza czas = 36) value: 'Bledny laczny czas'.
+    sprawdz value: (dluzsza koszt = 6) value: 'Bledny laczny koszt'.
+    Transcript showCr: 'Testy Modulu 3: OK'; cr.
 
-"Wydruk całej trasy"
-dluzsza drukuj.
+    "Wydruk całej trasy"
+    dluzsza drukuj.
+
+    "Opis każdego odcinka (komunikat opis)"
+    Transcript cr; showCr: '--------- OPISY ---------'.
+    calosc odcinki do: [ :etap | Transcript showCr: etap opis ].
+    Transcript flush
+] on: Error do: [ :e |
+    Transcript flush.
+    Transcript showCr: 'BLAD: ' , (e messageText ifNil: [ e description ]).
+    Transcript flush.
+    ObjectMemory quit: 1 ].

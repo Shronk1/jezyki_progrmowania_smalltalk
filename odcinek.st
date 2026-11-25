@@ -66,6 +66,10 @@ Object subclass: Trasa [
             Transcript show: '   ' , etap dystans printString , ' km | ' ,
                 etap czas printString , ' min | ' ,
                 etap koszt printString , ' zl'; cr.
+            etap opoznienie > 0 ifTrue: [
+                Transcript show: '   w tym opoznienie: ' ,
+                    etap opoznienie printString , ' min'; cr
+            ].
             nr := nr + 1
         ].
         Transcript show: '-------------------------'; cr.
@@ -99,6 +103,12 @@ Object subclass: OdcinekPodrozy [
     czas [ ^0 ]
     koszt [ ^0 ]
     nazwaTransportu [ ^'Odcinek' ]
+
+    "Modul A: domyslnie odcinek nie ma opoznien i nie mozna ich nadac"
+    opoznienie [ ^0 ]
+    opoznienie: minuty [
+        ^self error: self nazwaTransportu , ' nie obsluguje opoznien'
+    ]
 
     opis [
         ^self nazwaTransportu , ': ' , poczatek , ' -> ' , koniec ,
@@ -144,12 +154,22 @@ OdcinekPodrozy subclass: Rower [
 ]
 
 OdcinekPodrozy subclass: Autobus [
+    | opoznienie |
+
     nazwaTransportu [ ^'Autobus' ]
-    czas [ ^(self dystans * 2) + 2 ]
+    czas [ ^(self dystans * 2) + 2 + self opoznienie ]
     koszt [ ^4 ]
+
+    "Modul A: opoznienie w minutach; nowa wartosc zastepuje poprzednia"
+    opoznienie [ ^opoznienie ifNil: [ 0 ] ]
+    opoznienie: minuty [
+        ((minuty isKindOf: Integer) and: [ minuty >= 0 ])
+            ifFalse: [ ^self error: 'Opoznienie musi byc nieujemna liczba calkowita' ].
+        opoznienie := minuty
+    ]
 ]
 
-"=== TESTY MODUŁÓW 1, 2 i 3 ==="
+"=== TESTY MODUŁÓW 1, 2, 3 i A ==="
 | a b c d lewa prawa dluzsza calosc sprawdz blad |
 sprawdz := [ :warunek :opis |
     warunek ifFalse: [ Error signal: opis ] ].
@@ -194,6 +214,44 @@ sprawdz := [ :warunek :opis |
     "Opis każdego odcinka (komunikat opis)"
     Transcript cr; showCr: '--------- OPISY ---------'.
     calosc odcinki do: [ :etap | Transcript showCr: etap opis ].
+    Transcript cr.
+
+    "Weryfikacja Modulu A (b to autobus nalezacy do tras lewa, dluzsza i calosc)"
+    sprawdz value: (b opoznienie = 0) value: 'Domyslne opoznienie'.
+    b opoznienie: 10.
+    sprawdz value: (b czas = 22) value: 'Czas opoznionego autobusu'.
+    sprawdz value: (dluzsza czas = 46) value: 'Opoznienie nie wplywa na trase'.
+    sprawdz value: (calosc czas = 70) value: 'Opoznienie nie wplywa na druga trase'.
+    sprawdz value: (dluzsza dystans = 9) value: 'Opoznienie zmienilo dystans'.
+    sprawdz value: (dluzsza koszt = 6) value: 'Opoznienie zmienilo koszt'.
+    b opoznienie: 5.
+    sprawdz value: (dluzsza czas = 41) value: 'Nowe opoznienie nie zastapilo starego'.
+
+    "Bledne dane i nieobslugiwane srodki transportu"
+    (Array with: -1 with: 2.5 with: 'piec' with: nil) do: [ :zle |
+        blad := false.
+        [ b opoznienie: zle ] on: Error do: [ :e | blad := true. e return: nil ].
+        sprawdz value: blad value: 'Brak bledu dla ' , zle printString ].
+    (Array with: a with: c) do: [ :etap |
+        blad := false.
+        [ etap opoznienie: 5 ] on: Error do: [ :e | blad := true. e return: nil ].
+        sprawdz value: blad value: 'Brak bledu: ' , etap nazwaTransportu ].
+    sprawdz value: (dluzsza czas = 41) value: 'Bledne dane zmienily czas'.
+
+    b opoznienie: 0.
+    sprawdz value: (dluzsza czas = 36) value: 'Usuniecie opoznienia'.
+    Transcript show: 'Testy Modulu A: OK'; cr; cr.
+
+    "Demonstracja Modulu A"
+    Transcript show: 'Czas trasy bez opoznien: ' , dluzsza czas printString , ' min'; cr.
+    b opoznienie: 10.
+    Transcript show: 'Autobus spoznia sie 10 min:'; cr.
+    dluzsza drukuj.
+
+    Transcript show: 'Proba opoznienia pieszego:'; cr.
+    [ a opoznienie: 5 ] on: Error do: [ :e |
+        Transcript show: 'Blad: ' , e messageText; cr.
+        e return: nil ].
     Transcript flush
 ] on: Error do: [ :e |
     Transcript flush.

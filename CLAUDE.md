@@ -23,7 +23,7 @@ The target dialect is **GNU Smalltalk** (bracket class syntax). `gst` 3.2.5 is i
 gst odcinek.st
 ```
 
-Expected output: `Testy Modulu 2: OK`, `Testy Modulu 3: OK`, then the printed route.
+Expected output: `Testy Modulu 2: OK`, `Testy Modulu 3: OK`, the printed route, `Testy Modulu A: OK`, then the module A demo.
 
 **Testing gotcha:** there is no test framework. Checks use a `sprawdz` block that raises `Error signal: opis`. In gst, an error in a top-level statement **prints a stack trace and execution continues**, with exit code 0. A later `... OK` line will still print. Always check the output for `error:` / stack traces. Do not rely on the "OK" lines or on the exit code.
 
@@ -34,13 +34,14 @@ Object
 ├── Trasa                      route: ordered collection of segments
 └── OdcinekPodrozy             base segment: poczatek, koniec, dystans
     ├── Pieszo                 czas = dystans*12, koszt 0
-    ├── Rower                  czas = dystans*4,  koszt 0
+    ├── Rower                  czas = dystans*4,  koszt 2
     └── Autobus                czas = dystans*2+2, koszt 4
 ```
 
 - **OdcinekPodrozy** holds shared state and accessors. It provides the constructor `od:do:dystans:` (keyword message with 3 args), default `czas`/`koszt` = 0, `nazwaTransportu`, and `opis`. Subclasses override only `nazwaTransportu`, `czas` and `koszt`, because the spec forbids duplicating shared code in subclasses.
 - **`+` is defined twice**, in both `OdcinekPodrozy` and `Trasa`. Dispatch happens on the left operand's class. The method then checks the right operand with `isKindOf:` (`OdcinekPodrozy` or `Trasa`) and otherwise calls `self error: 'Oczekiwano odcinka lub trasy'`. It always returns a **new** `Trasa` built from a fresh `OrderedCollection` (`add:`/`addAll:`). Operands must never be mutated, and the tests verify this.
 - **Trasa** aggregates with `inject:into:` by sending `dystans`/`czas`/`koszt` to each segment. The spec **forbids** class checks for time/cost and **forbids** separate per-transport collections, so aggregation must stay polymorphic. `drukuj` prints to `Transcript` in the format from the spec.
+- **Delays (module A):** `OdcinekPodrozy` answers `opoznienie` with 0, and its `opoznienie:` raises an error. Only `Autobus` overrides both and adds the delay in `czas`. Setting a delay replaces the previous value. `drukuj` shows a delay line only when it is > 0.
 - File order: `Trasa` is defined before `OdcinekPodrozy`, but each class's methods refer to the other. gst accepts this because method bodies bind globals late. Any new class must be defined before the test script at the bottom.
 - The test/demo script is a single top-level `| ... |` block at the end of the file. New features should get their own `sprawdz` checks there and a printed demo.
 
@@ -53,7 +54,8 @@ Grading totals 15 pts. Mandatory modules are worth 2 pts each. The optional modu
 | 1. Środki transportu i dziedziczenie | done |
 | 2. Łączenie odcinków – `+` | done, tested |
 | 3. Trasa jako agregator (`dystans`, `czas`, `koszt`, `drukuj`) | done, tested |
-| Optional modules | **not started** |
+| A. Opóźnienia (optional) | done, tested |
+| Other optional modules | **not started** |
 
 The optional modules to choose from:
 - **A** opóźnienia (`opoznienie:`)
@@ -80,5 +82,5 @@ General requirements that apply to all new code:
 
 Known gaps compared with the spec's example output:
 - Distances are integers. The spec shows decimal values (`0,8 km`, `4,80 zł`).
-- `Rower` costs 0, while the spec example uses 1 zł.
+- `Rower` costs 2, while the spec example uses 1 zł.
 - `opis` is implemented but not exercised in the demo.

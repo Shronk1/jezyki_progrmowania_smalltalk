@@ -8,16 +8,16 @@ gst start.st
 
 MacOS:
   Instalacja GNU Smalltalk przy użyciu homebrew:
-    ```console
-    brew --version
-    brew install gnu-smalltalk
-    gst --version
-    ```
+  ```console
+  brew --version
+  brew install gnu-smalltalk
+  gst --version
+  ```
   
   Uruchamianie:
-    ```console
-    gst odcinek.st
-    ```
+  ```console
+  gst odcinek.st
+  ```
   
 
 Windows:

@@ -2,7 +2,7 @@
 
 Jak odpalić:
 Linux:
-gst odcinek.st kaucja.st
+gst start.st
 
 Windows:
 https://wsp-bilikiewicz.pl/

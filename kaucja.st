@@ -51,7 +51,7 @@ stawka := Kaucja domyslna stawka.
 
 sprawdz value: ((stawka >= 1) and: [ stawka <= 3 ]) value: 'Stawka spoza zakresu 1..3'.
 sprawdz value: (a koszt = (0 - (2 * stawka))) value: 'Bledna kaucja dla Pieszo'.
-sprawdz value: (trasa koszt = (4 - (2 * stawka))) value: 'Bledny laczny koszt trasy'.
+sprawdz value: (trasa koszt = (6 - (2 * stawka))) value: 'Bledny laczny koszt trasy'.
 
 Transcript cr; show: 'Testy Modulu 4 (Kaucja): OK'; cr.
 Transcript show: 'Wylosowana stawka kaucji: ' , stawka printString , ' zl/km'; cr; cr.

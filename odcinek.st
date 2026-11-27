@@ -55,7 +55,7 @@ Object subclass: Trasa [
         ^odcinki inject: 0 into: [ :suma :etap | suma + etap koszt ]
     ]
 
-    "Moduł 3: Drukowanie trasy w formacie z przykładowego wyniku"
+    "Moduł 3: Drukowanie trasy"
     drukuj [
         | nr |
         Transcript show: '--------- TRASA ---------'; cr.

@@ -1,0 +1,607 @@
+]633;E;for f in *;d4d3976a-02a7-4d0c-b6dc-0f93d2c71d25]633;C=== CLAUDE.md ===
+# CLAUDE.md
+
+This file guides Claude Code (claude.ai/code) when it works in this repository.
+
+## What this is
+
+This is a university team project for "Języki programowania – Smalltalk", 2026/27, Politechnika Gdańska (WETI), taught by Magdalena Godlewska. The project is **GoSmall – planer podróży**, a text-only travel planner in Smalltalk. A trip is made of segments that use different means of transport. The grade rests on visible use of OOP concepts: inheritance and class hierarchy, polymorphism and method overriding, messages with different numbers of arguments, aggregation of objects of different classes, and dynamic type recognition.
+
+All identifiers, comments and output are in **Polish**. Keep that convention: method names such as `czas`, `koszt`, `dystans`, `drukuj`, `opis`, and messages without diacritics such as `zl` instead of `zł`.
+
+## Repository layout
+
+- `odcinek.st`: the entire program. It holds the class definitions plus the inline test/demo script at the bottom.
+- `docs/`: course materials, **gitignored** (local only):
+  - `smalltalk_zadanie.pdf`: the assignment spec (modules, requirements, grading).
+  - `GoSmall.pdf`: the lecturer's GNU Smalltalk tutorial for this project (syntax, `+` design hints, the mini-test template that the tests in `odcinek.st` come from).
+
+## Running
+
+The target dialect is **GNU Smalltalk** (bracket class syntax). `gst` 3.2.5 is installed at `/opt/homebrew/bin/gst`.
+
+```sh
+gst odcinek.st
+```
+
+Expected output: `Testy Modulu 2: OK`, `Testy Modulu 3: OK`, the printed route, `Testy Modulu A: OK`, then the module A demo.
+
+**Testing gotcha:** there is no test framework. Checks use a `sprawdz` block that raises `Error signal: opis`. In gst, an error in a top-level statement **prints a stack trace and execution continues**, with exit code 0. A later `... OK` line will still print. Always check the output for `error:` / stack traces. Do not rely on the "OK" lines or on the exit code.
+
+## Architecture (`odcinek.st`)
+
+```
+Object
+├── Trasa                      route: ordered collection of segments
+└── OdcinekPodrozy             base segment: poczatek, koniec, dystans
+    ├── Pieszo                 czas = dystans*12, koszt 0
+    ├── Rower                  czas = dystans*4,  koszt 2
+    └── Autobus                czas = dystans*2+2, koszt 4
+```
+
+- **OdcinekPodrozy** holds shared state and accessors. It provides the constructor `od:do:dystans:` (keyword message with 3 args), default `czas`/`koszt` = 0, `nazwaTransportu`, and `opis`. Subclasses override only `nazwaTransportu`, `czas` and `koszt`, because the spec forbids duplicating shared code in subclasses.
+- **`+` is defined twice**, in both `OdcinekPodrozy` and `Trasa`. Dispatch happens on the left operand's class. The method then checks the right operand with `isKindOf:` (`OdcinekPodrozy` or `Trasa`) and otherwise calls `self error: 'Oczekiwano odcinka lub trasy'`. It always returns a **new** `Trasa` built from a fresh `OrderedCollection` (`add:`/`addAll:`). Operands must never be mutated, and the tests verify this.
+- **Trasa** aggregates with `inject:into:` by sending `dystans`/`czas`/`koszt` to each segment. The spec **forbids** class checks for time/cost and **forbids** separate per-transport collections, so aggregation must stay polymorphic. `drukuj` prints to `Transcript` in the format from the spec.
+- **Delays (module A):** `OdcinekPodrozy` answers `opoznienie` with 0, and its `opoznienie:` raises an error. Only `Autobus` overrides both and adds the delay in `czas`. Setting a delay replaces the previous value. `drukuj` shows a delay line only when it is > 0.
+- File order: `Trasa` is defined before `OdcinekPodrozy`, but each class's methods refer to the other. gst accepts this because method bodies bind globals late. Any new class must be defined before the test script at the bottom.
+- The test/demo script is a single top-level `| ... |` block at the end of the file. New features should get their own `sprawdz` checks there and a printed demo.
+
+## Assignment status
+
+Grading totals 15 pts. Mandatory modules are worth 2 pts each. The optional modules together are worth 4.5 pts. The remaining points cover collections/iteration, polymorphism, class responsibilities, and quality/tests/error handling/presentation.
+
+| Module | Status |
+|---|---|
+| 1. Środki transportu i dziedziczenie | done |
+| 2. Łączenie odcinków – `+` | done, tested |
+| 3. Trasa jako agregator (`dystans`, `czas`, `koszt`, `drukuj`) | done, tested |
+| A. Opóźnienia (optional) | done, tested |
+| Other optional modules | **not started** |
+
+The optional modules to choose from:
+- **A** opóźnienia (`opoznienie:`)
+- **B** przesiadki (separate waiting time)
+- **C** `PlanerPodrozy` with `najszybsza`
+- **D** `najtansza`, comparing ≥3 routes
+- **E** `emisjaCO2`
+- **F** `Pasazer` with ≥2 subclasses and `kosztDla:`
+- **G** `Warunki` with `czasDla:`
+- **H** `uprosc`, which merges contiguous same-type segments
+- **I** `sprawdz`, a continuity check
+- **J** `zastap:przez:`
+- **K** a module of the team's own design
+
+The spec is inconsistent about how many optional modules to pick: one slide says 4, the module slides and the grading table say 3. Ask the user before assuming.
+
+General requirements that apply to all new code:
+- Messages with different arities.
+- A collection of mixed classes.
+- At least one message that accepts any object and recognizes its class.
+- Use of Smalltalk collection/iteration protocols (`do:`, `collect:`, `select:`, `inject:into:`, `detect:`…).
+- Proper handling of invalid input and operations.
+- A demo for every chosen module.
+
+Known gaps compared with the spec's example output:
+- Distances are integers. The spec shows decimal values (`0,8 km`, `4,80 zł`).
+- `Rower` costs 2, while the spec example uses 1 zł.
+- `opis` is implemented but not exercised in the demo.
+
+=== i_poprawnosc.st ===
+"=== MODUŁ I: Poprawność trasy (komunikat sprawdz) ===
+ Uruchomienie: gst i_poprawnosc.st LUB gst odcinek.st i_poprawnosc.st"
+(Smalltalk includesKey: #Trasa) ifFalse: [ FileStream fileIn: 'odcinek.st' ].
+
+"Pojedyncza wykryta nieciągłość: para sąsiednich odcinków, które się nie łączą"
+Object subclass: Nieciaglosc [
+    | numer poprzedni nastepny |
+
+    "Konstruktor z 3 argumentami: numer pierwszego odcinka pary i oba odcinki"
+    Nieciaglosc class >> numer: n poprzedni: p nastepny: k [
+        ^self new ustawNumer: n poprzedni: p nastepny: k
+    ]
+
+    ustawNumer: n poprzedni: p nastepny: k [
+        numer := n.
+        poprzedni := p.
+        nastepny := k
+    ]
+
+    numer [ ^numer ]
+    poprzedni [ ^poprzedni ]
+    nastepny [ ^nastepny ]
+
+    opis [
+        ^'Koniec odcinka ' , numer printString , ' (' , poprzedni koniec ,
+         ') nie jest poczatkiem odcinka ' , (numer + 1) printString ,
+         ' (' , nastepny poczatek , ')'
+    ]
+]
+
+OdcinekPodrozy extend [
+    "Czy po tym odcinku można kontynuować podróż obiektem cos?
+     Przyjmuje dowolny obiekt i rozpoznaje jego klasę."
+    laczySieZ: cos [
+        (cos isKindOf: OdcinekPodrozy)
+            ifTrue: [ ^self koniec = cos poczatek ].
+        (cos isKindOf: Trasa)
+            ifTrue: [
+                cos odcinki isEmpty ifTrue: [ ^true ].
+                ^self laczySieZ: cos odcinki first ].
+        ^self error: 'Oczekiwano odcinka lub trasy'
+    ]
+]
+
+Trasa extend [
+    "Wszystkie miejsca, w których koniec odcinka nie jest początkiem kolejnego"
+    nieciaglosci [
+        | numery |
+        numery := (1 to: odcinki size - 1) reject: [ :i |
+            (odcinki at: i) laczySieZ: (odcinki at: i + 1) ].
+        ^numery collect: [ :i |
+            Nieciaglosc
+                numer: i
+                poprzedni: (odcinki at: i)
+                nastepny: (odcinki at: i + 1) ]
+    ]
+
+    jestCiagla [
+        ^self nieciaglosci isEmpty
+    ]
+
+    "Moduł I: weryfikuje ciągłość, drukuje raport i zwraca true/false"
+    sprawdz [
+        | bledy |
+        Transcript show: '------ SPRAWDZENIE ------'; cr.
+        odcinki isEmpty ifTrue: [
+            Transcript show: 'Trasa jest pusta - brak odcinkow do sprawdzenia'; cr.
+            Transcript show: '-------------------------'; cr.
+            ^true ].
+
+        bledy := self nieciaglosci.
+        bledy isEmpty
+            ifTrue: [
+                Transcript show: 'Trasa poprawna: ' , odcinki first poczatek ,
+                    ' -> ' , odcinki last koniec ,
+                    ' (liczba odcinkow: ' , odcinki size printString , ')'; cr ]
+            ifFalse: [
+                Transcript show: 'Trasa NIEPOPRAWNA - liczba nieciaglosci: ' ,
+                    bledy size printString; cr.
+                bledy do: [ :blad |
+                    Transcript show: ' * ' , blad opis; cr.
+                    Transcript show: '     ' , blad numer printString , '. ' ,
+                        blad poprzedni opis; cr.
+                    Transcript show: '     ' , (blad numer + 1) printString , '. ' ,
+                        blad nastepny opis; cr ] ].
+        Transcript show: '-------------------------'; cr.
+        ^bledy isEmpty
+    ]
+]
+
+"=== TESTY I DEMO MODUŁU I ==="
+| a b c d x y z poprawna niepoprawna pojedyncza bledy wynik blad sprawdzWarunek |
+sprawdzWarunek := [ :warunek :opis |
+    warunek ifFalse: [ Error signal: opis ] ].
+
+[
+    a := Pieszo new od: 'Armata' do: 'Przystanek' dystans: 1.
+    b := Autobus new od: 'Przystanek' do: 'Centrum' dystans: 5.
+    c := Rower new od: 'Centrum' do: 'Dom' dystans: 3.
+    d := Pieszo new od: 'Dom' do: 'Sklep' dystans: 2.
+
+    x := Pieszo new od: 'Armata' do: 'Przystanek' dystans: 1.
+    y := Rower new od: 'Centrum' do: 'Park' dystans: 4.
+    z := Autobus new od: 'Dom' do: 'Sklep' dystans: 2.
+
+    poprawna := a + b + c + d.
+    niepoprawna := x + y + z.
+    pojedyncza := Trasa new + a.
+
+    "laczySieZ: - rozpoznawanie klasy argumentu"
+    sprawdzWarunek value: (a laczySieZ: b) value: 'Odcinki a i b powinny sie laczyc'.
+    sprawdzWarunek value: (a laczySieZ: c) not value: 'Odcinki a i c nie powinny sie laczyc'.
+    sprawdzWarunek value: (a laczySieZ: (b + c)) value: 'Odcinek a powinien laczyc sie z trasa b+c'.
+    sprawdzWarunek value: (a laczySieZ: (c + d)) not value: 'Odcinek a nie powinien laczyc sie z trasa c+d'.
+    sprawdzWarunek value: (a laczySieZ: Trasa new) value: 'Pusta trasa zawsze pasuje'.
+    blad := false.
+    [ a laczySieZ: 'Centrum' ] on: Error do: [ :e | blad := true. e return: nil ].
+    sprawdzWarunek value: blad value: 'Brak bledu dla napisu w laczySieZ:'.
+
+    "Trasa poprawna"
+    sprawdzWarunek value: poprawna jestCiagla value: 'Poprawna trasa uznana za nieciagla'.
+    sprawdzWarunek value: poprawna nieciaglosci isEmpty value: 'Poprawna trasa ma nieciaglosci'.
+
+    "Trasa niepoprawna: dwie nieciągłości, między odcinkami 1-2 i 2-3"
+    bledy := niepoprawna nieciaglosci.
+    sprawdzWarunek value: niepoprawna jestCiagla not value: 'Niepoprawna trasa uznana za ciagla'.
+    sprawdzWarunek value: bledy size = 2 value: 'Zla liczba nieciaglosci'.
+    sprawdzWarunek value: ((bledy collect: [ :n | n numer ]) asArray = #(1 2))
+        value: 'Zle numery nieciaglosci'.
+    sprawdzWarunek value: (bledy first poprzedni == x and: [ bledy first nastepny == y ])
+        value: 'Zle odcinki pierwszej nieciaglosci'.
+    sprawdzWarunek value: (bledy last poprzedni == y and: [ bledy last nastepny == z ])
+        value: 'Zle odcinki drugiej nieciaglosci'.
+
+    "Przypadki brzegowe: trasa pusta i jednoodcinkowa"
+    sprawdzWarunek value: Trasa new jestCiagla value: 'Pusta trasa powinna byc ciagla'.
+    sprawdzWarunek value: pojedyncza jestCiagla value: 'Trasa z 1 odcinkiem powinna byc ciagla'.
+
+    "Sprawdzenie nie zmienia trasy"
+    sprawdzWarunek value: (niepoprawna odcinki asArray = (Array with: x with: y with: z))
+        value: 'Sprawdzenie zmienilo trase'.
+    Transcript showCr: 'Testy Modulu I: OK'; cr.
+
+    "Demo: trasa poprawna"
+    poprawna drukuj.
+    wynik := poprawna sprawdz.
+    sprawdzWarunek value: wynik value: 'sprawdz zwrocil false dla poprawnej trasy'.
+    Transcript cr.
+
+    "Demo: trasa niepoprawna"
+    niepoprawna drukuj.
+    wynik := niepoprawna sprawdz.
+    sprawdzWarunek value: wynik not value: 'sprawdz zwrocil true dla niepoprawnej trasy'.
+    Transcript cr.
+
+    "Demo: trasa pusta"
+    Trasa new sprawdz.
+    Transcript flush
+] on: Error do: [ :e |
+    Transcript flush.
+    Transcript showCr: 'BLAD: ' , (e messageText ifNil: [ e description ]).
+    Transcript flush.
+    ObjectMemory quit: 1 ].
+
+=== kaucja.st ===
+"=== MODUŁ 4: Kaucja (osobny plik: kaucja.st) ==="
+
+Object subclass: Kaucja [
+    | stawka |
+    Instancja := nil.
+
+    "Konstruktor wzorowany na samouczku - losuje stawkę (1..3 zł/km)"
+    Kaucja class >> new [
+        | k |
+        k := super new.
+        k losujStawke.
+        ^k
+    ]
+
+    "Wspólna instancja - gwarantuje jedno losowanie i spójność w Trasa >> drukuj"
+    Kaucja class >> domyslna [
+        Instancja isNil ifTrue: [ Instancja := self new ].
+        ^Instancja
+    ]
+
+    losujStawke [
+        stawka := Random between: 1 and: 3
+    ]
+
+    stawka [ ^stawka ]
+
+    "Zarobek to ujemny koszt: -(dystans * stawka)"
+    dlaDystansu: km [
+        ^0 - (km * stawka)
+    ]
+]
+
+"Rozszerzenie istniejącej klasy Pieszo o użycie klasy Kaucja"
+Pieszo extend [
+    koszt [
+        ^Kaucja domyslna dlaDystansu: self dystans
+    ]
+]
+
+"=== TEST MODUŁU 4 ==="
+| a b c trasa stawka sprawdz |
+sprawdz := [ :warunek :opis |
+    warunek ifFalse: [ Error signal: opis ] ].
+
+a := Pieszo new od: 'Armata' do: 'Przystanek' dystans: 2.
+b := Autobus new od: 'Przystanek' do: 'Centrum' dystans: 5.
+c := Rower new od: 'Centrum' do: 'Dom' dystans: 3.
+
+trasa := a + b + c.
+stawka := Kaucja domyslna stawka.
+
+sprawdz value: ((stawka >= 1) and: [ stawka <= 3 ]) value: 'Stawka spoza zakresu 1..3'.
+sprawdz value: (a koszt = (0 - (2 * stawka))) value: 'Bledna kaucja dla Pieszo'.
+sprawdz value: (trasa koszt = (6 - (2 * stawka))) value: 'Bledny laczny koszt trasy'.
+
+Transcript cr; show: 'Testy Modulu 4 (Kaucja): OK'; cr.
+Transcript show: 'Wylosowana stawka kaucji: ' , stawka printString , ' zl/km'; cr; cr.
+trasa drukuj.
+=== odcinek.st ===
+"=== MODUŁ 2 i 3: Klasa Trasa (łączenie + agregacja i drukowanie) ==="
+Object subclass: Trasa [
+    | odcinki |
+
+    Trasa class >> new [
+        | t |
+        t := super new.
+        t ustawOdcinki: OrderedCollection new.
+        ^t
+    ]
+
+    ustawOdcinki: kolekcja [
+        odcinki := kolekcja
+    ]
+
+    odcinki [
+        ^odcinki
+    ]
+
+    "Moduł 2: Polimorficzny operator +"
+    + drugi [
+        | wynik nowaTrasa |
+        wynik := OrderedCollection new.
+        wynik addAll: odcinki.
+
+        (drugi isKindOf: OdcinekPodrozy)
+            ifTrue: [
+                wynik add: drugi.
+                nowaTrasa := Trasa new.
+                nowaTrasa ustawOdcinki: wynik.
+                ^nowaTrasa
+            ].
+
+        (drugi isKindOf: Trasa)
+            ifTrue: [
+                wynik addAll: drugi odcinki.
+                nowaTrasa := Trasa new.
+                nowaTrasa ustawOdcinki: wynik.
+                ^nowaTrasa
+            ].
+
+        self error: 'Oczekiwano odcinka lub trasy'
+    ]
+
+    "Moduł 3: Agregacja wartości przez polimorficzne wysyłanie komunikatów do odcinków"
+    dystans [
+        ^odcinki inject: 0 into: [ :suma :etap | suma + etap dystans ]
+    ]
+
+    czas [
+        ^odcinki inject: 0 into: [ :suma :etap | suma + etap czas ]
+    ]
+
+    koszt [
+        ^odcinki inject: 0 into: [ :suma :etap | suma + etap koszt ]
+    ]
+
+    "Moduł 3: Drukowanie trasy w formacie z przykładowego wyniku"
+    drukuj [
+        | nr |
+        Transcript show: '--------- TRASA ---------'; cr.
+        nr := 1.
+        odcinki do: [ :etap |
+            Transcript show: nr printString , '. ' , etap nazwaTransportu; cr.
+            Transcript show: '   ' , etap poczatek , ' -> ' , etap koniec; cr.
+            Transcript show: '   ' , etap dystans printString , ' km | ' ,
+                etap czas printString , ' min | ' ,
+                etap koszt printString , ' zl'; cr.
+            etap opoznienie > 0 ifTrue: [
+                Transcript show: '   w tym opoznienie: ' ,
+                    etap opoznienie printString , ' min'; cr
+            ].
+            nr := nr + 1
+        ].
+        Transcript show: '-------------------------'; cr.
+        Transcript show: 'Dystans: ' , self dystans printString , ' km'; cr.
+        Transcript show: 'Czas:    ' , self czas printString , ' min'; cr.
+        Transcript show: 'Koszt:   ' , self koszt printString , ' zl'; cr.
+        Transcript show: '-------------------------'; cr
+    ]
+]
+
+"=== MODUŁ 1: Klasa OdcinekPodrozy i podklasy ==="
+Object subclass: OdcinekPodrozy [
+    | poczatek koniec dystans |
+
+    OdcinekPodrozy class >> new [
+        | op |
+        op := super new.
+        op od: '' do: '' dystans: 0.
+        ^op
+    ]
+
+    od: p do: k dystans: d [
+        poczatek := p.
+        koniec := k.
+        dystans := d
+    ]
+
+    poczatek [ ^poczatek ]
+    koniec [ ^koniec ]
+    dystans [ ^dystans ]
+    czas [ ^0 ]
+    koszt [ ^0 ]
+    nazwaTransportu [ ^'Odcinek' ]
+
+    "Modul A: domyslnie odcinek nie ma opoznien i nie mozna ich nadac"
+    opoznienie [ ^0 ]
+    opoznienie: minuty [
+        ^self error: self nazwaTransportu , ' nie obsluguje opoznien'
+    ]
+
+    opis [
+        ^self nazwaTransportu , ': ' , poczatek , ' -> ' , koniec ,
+         ' (dystans: ' , self dystans printString , ' km, czas: ' ,
+         self czas printString , ' min, koszt: ' , self koszt printString , ' zl)'
+    ]
+
+    + drugi [
+        | wynik nowaTrasa |
+        (drugi isKindOf: OdcinekPodrozy)
+            ifTrue: [
+                wynik := OrderedCollection new.
+                wynik add: self.
+                wynik add: drugi.
+                nowaTrasa := Trasa new.
+                nowaTrasa ustawOdcinki: wynik.
+                ^nowaTrasa
+            ].
+
+        (drugi isKindOf: Trasa)
+            ifTrue: [
+                wynik := OrderedCollection new.
+                wynik add: self.
+                wynik addAll: drugi odcinki.
+                nowaTrasa := Trasa new.
+                nowaTrasa ustawOdcinki: wynik.
+                ^nowaTrasa
+            ].
+
+        self error: 'Oczekiwano odcinka lub trasy'
+    ]
+]
+
+OdcinekPodrozy subclass: Pieszo [
+    nazwaTransportu [ ^'Pieszo' ]
+    czas [ ^self dystans * 12 ]
+]
+
+OdcinekPodrozy subclass: Rower [
+    nazwaTransportu [ ^'Rower' ]
+    czas [ ^self dystans * 4 ]
+    koszt [ ^2 ]
+]
+
+OdcinekPodrozy subclass: Autobus [
+    | opoznienie |
+
+    nazwaTransportu [ ^'Autobus' ]
+    czas [ ^(self dystans * 2) + 2 + self opoznienie ]
+    koszt [ ^4 ]
+
+    "Modul A: opoznienie w minutach; nowa wartosc zastepuje poprzednia"
+    opoznienie [ ^opoznienie ifNil: [ 0 ] ]
+    opoznienie: minuty [
+        ((minuty isKindOf: Integer) and: [ minuty >= 0 ])
+            ifFalse: [ ^self error: 'Opoznienie musi byc nieujemna liczba calkowita' ].
+        opoznienie := minuty
+    ]
+]
+
+"=== TESTY MODUŁÓW 1, 2, 3 i A ==="
+| a b c d lewa prawa dluzsza calosc sprawdz blad |
+sprawdz := [ :warunek :opis |
+    warunek ifFalse: [ Error signal: opis ] ].
+
+[
+    a := Pieszo new od: 'Armata' do: 'Przystanek' dystans: 1.
+    b := Autobus new od: 'Przystanek' do: 'Centrum' dystans: 5.
+    c := Rower new od: 'Centrum' do: 'Dom' dystans: 3.
+    d := Pieszo new od: 'Dom' do: 'Sklep' dystans: 2.
+
+    lewa := a + b.
+    prawa := c + d.
+    dluzsza := lewa + c.
+    calosc := lewa + prawa.
+
+    "Weryfikacja Modułu 2"
+    sprawdz value: (lewa isKindOf: Trasa) value: 'Typ wyniku'.
+    sprawdz value: (dluzsza odcinki asArray = (Array with: a with: b with: c))
+        value: 'Trasa + odcinek'.
+    sprawdz value: (calosc odcinki asArray = (Array with: a with: b with: c with: d))
+        value: 'Trasa + trasa'.
+    sprawdz value: (lewa odcinki asArray = (Array with: a with: b))
+        value: 'Zmieniona lewa trasa'.
+    sprawdz value: (prawa odcinki asArray = (Array with: c with: d))
+        value: 'Zmieniona prawa trasa'.
+
+    blad := false.
+    [ lewa + 7 ] on: Error do: [ :e | blad := true. e return: nil ].
+    sprawdz value: blad value: 'Brak bledu dla liczby'.
+    Transcript showCr: 'Testy Modulu 2: OK'.
+
+    "Weryfikacja Modułu 3 (trasa Armata -> Przystanek -> Centrum -> Dom)"
+    sprawdz value: (c koszt = 2) value: 'Bledny koszt roweru'.
+    sprawdz value: (dluzsza dystans = 9) value: 'Bledny laczny dystans'.
+    sprawdz value: (dluzsza czas = 36) value: 'Bledny laczny czas'.
+    sprawdz value: (dluzsza koszt = 6) value: 'Bledny laczny koszt'.
+    Transcript showCr: 'Testy Modulu 3: OK'; cr.
+
+    "Wydruk całej trasy"
+    dluzsza drukuj.
+
+    "Opis każdego odcinka (komunikat opis)"
+    Transcript cr; showCr: '--------- OPISY ---------'.
+    calosc odcinki do: [ :etap | Transcript showCr: etap opis ].
+    Transcript cr.
+
+    "Weryfikacja Modulu A (b to autobus nalezacy do tras lewa, dluzsza i calosc)"
+    sprawdz value: (b opoznienie = 0) value: 'Domyslne opoznienie'.
+    b opoznienie: 10.
+    sprawdz value: (b czas = 22) value: 'Czas opoznionego autobusu'.
+    sprawdz value: (dluzsza czas = 46) value: 'Opoznienie nie wplywa na trase'.
+    sprawdz value: (calosc czas = 70) value: 'Opoznienie nie wplywa na druga trase'.
+    sprawdz value: (dluzsza dystans = 9) value: 'Opoznienie zmienilo dystans'.
+    sprawdz value: (dluzsza koszt = 6) value: 'Opoznienie zmienilo koszt'.
+    b opoznienie: 5.
+    sprawdz value: (dluzsza czas = 41) value: 'Nowe opoznienie nie zastapilo starego'.
+
+    "Bledne dane i nieobslugiwane srodki transportu"
+    (Array with: -1 with: 2.5 with: 'piec' with: nil) do: [ :zle |
+        blad := false.
+        [ b opoznienie: zle ] on: Error do: [ :e | blad := true. e return: nil ].
+        sprawdz value: blad value: 'Brak bledu dla ' , zle printString ].
+    (Array with: a with: c) do: [ :etap |
+        blad := false.
+        [ etap opoznienie: 5 ] on: Error do: [ :e | blad := true. e return: nil ].
+        sprawdz value: blad value: 'Brak bledu: ' , etap nazwaTransportu ].
+    sprawdz value: (dluzsza czas = 41) value: 'Bledne dane zmienily czas'.
+
+    b opoznienie: 0.
+    sprawdz value: (dluzsza czas = 36) value: 'Usuniecie opoznienia'.
+    Transcript show: 'Testy Modulu A: OK'; cr; cr.
+
+    "Demonstracja Modulu A"
+    Transcript show: 'Czas trasy bez opoznien: ' , dluzsza czas printString , ' min'; cr.
+    b opoznienie: 10.
+    Transcript show: 'Autobus spoznia sie 10 min:'; cr.
+    dluzsza drukuj.
+
+    Transcript show: 'Proba opoznienia pieszego:'; cr.
+    [ a opoznienie: 5 ] on: Error do: [ :e |
+        Transcript show: 'Blad: ' , e messageText; cr.
+        e return: nil ].
+    Transcript flush
+] on: Error do: [ :e |
+    Transcript flush.
+    Transcript showCr: 'BLAD: ' , (e messageText ifNil: [ e description ]).
+    Transcript flush.
+    ObjectMemory quit: 1 ].
+
+=== README.md ===
+# jezyki_progrmowania_smalltalk
+
+Jak odpalić:
+Linux:
+```console
+gst start.st
+```
+
+MacOS:
+Instalacja GNU Smalltalk przy użyciu homebrew:
+```console
+brew --version
+brew install gnu-smalltalk
+gst --version
+```
+  
+Uruchamianie:
+```console
+gst start.st
+```
+
+Windows:
+https://wsp-bilikiewicz.pl/
+
+=== start.st ===
+"=== GoSmall - plik startowy: wczytuje wszystkie moduly po kolei ===
+ Uruchomienie (z katalogu projektu): gst start.st"
+
+FileStream fileIn: 'odcinek.st'.       "Moduly 1, 2, 3 i A"
+FileStream fileIn: 'i_poprawnosc.st'.  "Modul I"
+FileStream fileIn: 'kaucja.st'.        "Modul K - Kaucja (na koncu: zmienia koszt Pieszo)"
+

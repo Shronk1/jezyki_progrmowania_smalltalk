@@ -4,7 +4,6 @@ Object subclass: Kaucja [
     | stawka |
     Instancja := nil.
 
-    "Konstruktor wzorowany na samouczku - losuje stawkę (1..3 zł/km)"
     Kaucja class >> new [
         | k |
         k := super new.
@@ -12,7 +11,6 @@ Object subclass: Kaucja [
         ^k
     ]
 
-    "Wspólna instancja - gwarantuje jedno losowanie i spójność w Trasa >> drukuj"
     Kaucja class >> domyslna [
         Instancja isNil ifTrue: [ Instancja := self new ].
         ^Instancja
